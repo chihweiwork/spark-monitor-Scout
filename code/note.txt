@@ -1,0 +1,30 @@
+
+``` python
+from pyspark.sql import SparkSession
+
+# 建立SparkSession物件
+spark = SparkSession.builder \
+    .appName("Spark 監控") \
+    .getOrCreate()
+
+
+# 獲取SparkContext物件
+sc = spark.sparkContext
+
+# 獲取執行器記憶體使用情況
+memory_status = sc.getExecutorMemoryStatus()
+
+# 輸出執行器記憶體使用情況
+for executor, memory in memory_status.items():
+    print(f"執行器 {executor} 的記憶體使用情況: {memory}")
+
+# 獲取執行器CPU使用情況
+cpu_status = sc.getExecutorCPUStatus()
+
+# 輸出執行器CPU使用情況
+for executor, cpu in cpu_status.items():
+    print(f"執行器 {executor} 的CPU使用情況: {cpu}")
+
+
+
+```
