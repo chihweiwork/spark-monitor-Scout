@@ -10,17 +10,6 @@ from typing import Any
 from typing import List
 from typing import Iterable
 
-def try_catch(func):
-    @wraps(func)
-    def tra_catch_wrapper(*args, **kwargs):
-        try:
-            result = func(*args, **kwargs)
-            return result
-        except:
-            exception_info()
-            #exc_type, exc_value, exc_traceback = sys.exc_info()
-            #traceback.print_tb(exc_traceback)
-
 def exception_info(limit=None, file=sys.stderr, chain=True):
     """ 
     Function to print exception.

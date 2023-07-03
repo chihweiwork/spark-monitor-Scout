@@ -4,10 +4,45 @@ from tabulate import tabulate
 
 import pandas as pd
 import json, pdb, requests
-import threading, time, re
+import threading, time
 import datetime
 
 from spark_monitor import Scout
+
+import re
+import datetime
+
+def parser_prom_data(row):
+    pattern=r"{(?P<data>.*)} (?P<value>(\S+)) (?P<timestamp>(\S+))"
+    tmp = re.match(pattern, row).groupdict()
+
+    output = {key:value for key, value in gen_labels(tmp['data'])}
+    output['value'] = tmp['value']
+    output['timestamp'] = int(tmp['timestamp'])//1000
+    output['date'] = get_datetime_string(output['timestamp'])
+    return output
+
+def gen_labels(labels: str):
+    # 解析 labels
+    # Input:
+    # __name__="scrape_series_added", instance="172.29.1.3:9100", job="worknode"
+
+    targets = labels.replace('"','').replace(' ','')
+    for target in targets.split(','):
+        key, value = target.split('=')
+        if key == '__name__':
+            yield "metric", value
+        else:
+            yield key, value
+
+def get_datetime_string(target: int) -> str:
+    # 時間戳記轉換成 string 格式為 yyyy-mm-dd
+    # Input:
+    #   timestamp
+    # output:
+    #   yyyy-mm-dd
+    tmp = datetime.datetime.fromtimestamp(target)
+    return tmp.strftime('%Y-%m-%d')
 
 def read_text(data_path):
     
@@ -54,41 +89,6 @@ class Main(Scout): # 繼承 Scout
         self.spark.stop()                       # -------------------> 停止 spark session
             
 
-def parser_prom_data(row):
-    pattern=r"{(?P<data>.*)} (?P<value>(\S+)) (?P<timestamp>(\S+))"
-    tmp = re.match(pattern, row).groupdict()
-
-    output = {key:value for key, value in gen_labels(tmp['data'])}
-    output['value'] = tmp['value']
-    output['timestamp'] = int(tmp['timestamp'])//1000
-    output['date'] = get_datetime_string(output['timestamp'])
-    return output
-
-def gen_labels(labels: str):
-    # 解析 labels
-    # Input:
-    # __name__="scrape_series_added", instance="172.29.1.3:9100", job="worknode"
-
-    targets = labels.replace('"','').replace(' ','')
-    for target in targets.split(','):
-        key, value = target.split('=')
-        if key == '__name__':
-            yield "metric", value
-        else:
-            yield key, value
-
-def get_datetime_string(target: int) -> str:
-    # 時間戳記轉換成 string 格式為 yyyy-mm-dd
-    # Input:
-    #   timestamp
-    # output:
-    #   yyyy-mm-dd
-    tmp = datetime.datetime.fromtimestamp(target)
-    return tmp.strftime('%Y-%m-%d')
-
-def start_monitor(session_or_url, configs):
-    scout = Scout(session_or_url, configs)
-
 if __name__ == "__main__":
 
     data_path = '/root/playground/spark-monitor-Scout/code/data.txt'
@@ -129,15 +129,4 @@ if __name__ == "__main__":
     data = read_text(data_path)
 
     main = Main({**configs, **scout_configs})
-    #spark_monitor = SparkMonitor(main.spark)
-    #daemon_thread = threading.Thread(target=spark_monitor.start)
-    #daemon_thread.daemon = True
-    #daemon_thread.start()
-    
     main.start(data)
-    
-
-
-    #while True:
-    #    print("yes 112233")
-    #    time.sleep(5)

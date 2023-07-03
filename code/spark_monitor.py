@@ -13,6 +13,8 @@ import pdb, sys
 
 from tool import exception_info
 from tool import MonitorData
+from scout_warning import UndefinedOutputMode
+from scout_warning import UndefinedGuardian
 
 
 class Application:
@@ -196,22 +198,6 @@ class ExecutorComputer(Application):
         output["memoryUsed_sum_pct"] = executors_df["memoryUsed"].sum() / executors_df["maxMemory"].sum() * 100
         output["memoryUsedPct_driver"] = executors_df.iloc[0]["memoryUsedPct"]
         return output
-
-class UndefinedOutputMode(Exception):
-    """
-    Exception raised for undefined output mode
-    """
-    def __init__(self, mode):
-        self.message = f"Undefined output mode {mode}"
-        super().__init__(self.message)
-
-class UndefinedGuardian(Exception):
-    """
-    Exception raised for undefined Monitor Guardian
-    """
-    def __init__(self, guardian_type):
-        self.message = f"Undefined guardian type: {guardian_type}, please check your configer available guradian: type-I"
-        super().__init__(self.message)
 
 class Scout(ExecutorComputer):
     """
