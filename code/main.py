@@ -91,7 +91,7 @@ def start_monitor(session_or_url, configs):
 
 if __name__ == "__main__":
 
-    data_path = '/root/playground/spark-monitor-test/code/data.txt'
+    data_path = '/root/playground/spark-monitor-Scout/code/data.txt'
 
     # spark configuration
     configs = {
