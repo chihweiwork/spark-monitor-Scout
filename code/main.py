@@ -8,6 +8,7 @@ import threading, time
 import datetime
 
 from spark_monitor import Scout
+from tool import exception_info
 
 import re
 import datetime
@@ -73,20 +74,27 @@ class Main(Scout): # 繼承 Scout
 
     def start(self, data):
         self.set_spark_session() # 先初始化 spark session
-        Scout.__init__(self, self.spark, self.configs) # 將 spark session 傳入 Scout
 
-        self.start_scout_daemon()               # -------------------> 開始監控 spark session
+        #Scout.__init__(self, self.spark, self.configs) # -------------------> 將 spark session 傳入 Scout
+        #self.start_scout_daemon()                      # -------------------> 開始監控 spark session
 
-        sc = self.spark.sparkContext            # 間單的示範程式
-        for x in range(0,5):                    # 間單的示範程式
-            rdd = sc.parallelize(data)          # 間單的示範程式
-            rdd = rdd.map(parser_prom_data)     # 間單的示範程式
-            spdf = rdd.toDF()                   # 間單的示範程式
-            spdf.show()                         # 間單的示範程式
-            time.sleep(10)                      # 間單的示範程式
-        self.stop_scout_daemon()                # -------------------> 停止監控
-        self.join_scout_thread()                # -------------------> 回收線程
-        self.spark.stop()                       # -------------------> 停止 spark session
+        sc = self.spark.sparkContext                   # 間單的示範程式
+        #for x in range(0,5):                           # 間單的示範程式
+        while True:
+            rdd = sc.parallelize(data)                 # 間單的示範程式
+            rdd = rdd.map(parser_prom_data)            # 間單的示範程式
+            spdf = rdd.toDF()                          # 間單的示範程式
+            spdf.show()                                # 間單的示範程式
+            time.sleep(10)                             # 間單的示範程式
+
+        #rdd = sc.parallelize(data)                 # 間單的示範程式
+        #rdd = rdd.map(parser_prom_data)            # 間單的示範程式
+        #spdf = rdd.toDF()                          # 間單的示範程式
+        #spdf.show()                                # 間單的示範程式
+
+        #self.stop_scout_daemon()                       # -------------------> 停止監控
+        #self.join_scout_thread()                       # -------------------> 回收線程
+        #self.spark.stop()                              # -------------------> 停止 spark session
             
 
 if __name__ == "__main__":
@@ -96,11 +104,11 @@ if __name__ == "__main__":
     # spark configuration
     configs = {
         "configs":{
-            "spark.executor.memory":"4g",
-            "spark.executor.cores":"2",
+            "spark.executor.memory":"1g",
+            "spark.executor.cores":"1",
             "spark.driver.memory":"2g",
             "spark.driver.cores":"2",
-            "spark.executor.instances":"2"
+            "spark.executor.instances":"1"
         },
         "appName":"spark session",
         "master":"spark://spark-master:7077"
@@ -129,4 +137,5 @@ if __name__ == "__main__":
     data = read_text(data_path)
 
     main = Main({**configs, **scout_configs})
+
     main.start(data)

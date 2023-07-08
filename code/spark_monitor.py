@@ -110,7 +110,7 @@ class ExecutorComputer(Application):
             executors_summary_dict['timestamp'] = now                         # 填入時間
             executors_summary_dict['application_id'] = self.application_id    # 填入 application ID
             return raw_executors_df, executors_df, executors_summary_dict     # 回傳 原始資料, 各個 executor 資料, 計算後的結果
-        except:
+        except Exception as e:
             exception_info()
 
     @staticmethod
@@ -187,11 +187,19 @@ class ExecutorComputer(Application):
             median            0.0                         0.0                          NaN              2.101975e+09                        0.0
             min               0.0                         0.0                          NaN              2.101975e+09                        0.0
             """
-
         # Convert to dict
         output: Dict[str, Any] = {
             f"{key}_{agg}": value for key, values in res.to_dict().items() for agg, value in values.items()
         }
+
+        if len(res.dropna()) == 0:
+            ana_cols = [
+                'numActive', 'memoryUsed_sum', 'maxMemory_sum',
+                'memoryUsed_sum_pct', 'memoryUsedPct_driver'
+            ]
+            ana = {col:None for col in ana_cols}
+            return {**output, **ana}
+
         output['numActive'] = len(executors_df.query("isActive"))
         output["memoryUsed_sum"] = executors_df["memoryUsed"].sum()
         output["maxMemory_sum"] = executors_df["maxMemory"].sum()
@@ -215,7 +223,8 @@ class Scout(ExecutorComputer):
         ) -> None:
 
         self.configs = configs
-        self.debug = "debug" in self.configs.keys() # Determine whether to use debug mode.
+        self.debug = "debug" in self.configs.keys() #or self.configs["debug"]
+        # Determine whether to use debug mode.
 
         ExecutorComputer.__init__(self, session_or_url, applications_api_link, self.debug)
         self.stop_flag = threading.Event() # setup stop flag.
@@ -299,11 +308,11 @@ class Scout(ExecutorComputer):
 if __name__ == "__main__":
     configs = {
         "configs":{
-            "spark.executor.memory":"4g",
-            "spark.executor.cores":"2",
+            "spark.executor.memory":"1g",
+            "spark.executor.cores":"1",
             "spark.driver.memory":"2g",
             "spark.driver.cores":"2",
-            "spark.executor.instances":"2"
+            "spark.executor.instances":"1"
         },
         "appName": "test spark monitor",
         "master": "spark://spark-master:7077"
@@ -336,6 +345,10 @@ if __name__ == "__main__":
     }
 
     scout = Scout(spark.sparkContext.uiWebUrl, scout_configs)
-    scout.run()
+    scout.start_scout_daemon()
+    while True:
+        time.sleep(5)
+    scout.stop_scout_daemon()
+    scout.join_scout_thread()
 
     spark.stop()

@@ -35,11 +35,12 @@ class NpEncoder(json.JSONEncoder):
 
 class MonitorData:
     def __init__(self, data: Any) -> None:
-        #self.data =d data
+        
         self.mode_mapping = {
             'overwrite':'w', 'append':'a'
         }
         self.generator = self.transform2generator(data)
+
     def transform2generator(self, data) -> Iterable:
 
         if isinstance(data, pd.DataFrame):
@@ -59,6 +60,7 @@ class MonitorData:
             raise TypeError(f"Input is unsupported {type(self.data)}")
 
     def write2text(self, file_name: str, mode: str = "append") -> None:
+        
         tf = open(file_name, self.mode_mapping[mode])
         for row in self.generator:
             try:
