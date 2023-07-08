@@ -223,6 +223,7 @@ class Scout(ExecutorComputer):
         ) -> None:
 
         self.configs = configs
+        self.log_path = configs['log_path']
         self.debug = "debug" in self.configs.keys() #or self.configs["debug"]
         # Determine whether to use debug mode.
 
@@ -272,21 +273,26 @@ class Scout(ExecutorComputer):
         try:
             raw_executors_df, executors_df, executors_summary_dict = self.log_executors_info()
             action = self.get_output_mode() # output mode: file, kafka
-            action(executors_df, self.configs["output"]["executor_info"])
-            action(executors_summary_dict, self.configs["output"]["summary"])
+            action(
+                executors_df, "info" 
+            )
+            action(
+                executors_summary_dict, "summary" 
+            )
             if self.debug: # if use debug mode, output all information
-                action(raw_executors_df, self.configs["debug"])
+                action(
+                    raw_executors_df, "debug"
+                )
             
         except:
             exception_info()
 
-    def write_text(self, data, configs):
+    def write_text(self, data, data_type):
         """
         This is output function, use this function to write text file.
         """
-        file_name = configs["file_name"]
-        mode = configs["mode"]
-        MonitorData(data).write2text(file_name=file_name, mode=mode)
+        file_name=f"{self.log_path}/{self.application_id}_{data_type}.txt"
+        MonitorData(data).write2text(file_name=file_name)
     
     def kafka_launcher(self, data, config):
         """

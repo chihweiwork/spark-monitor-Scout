@@ -3,9 +3,13 @@ from pyspark.conf import SparkConf
 from tabulate import tabulate
 
 import pandas as pd
-import json, pdb, requests
-import threading, time
+import json
+import pdb
+import requests
+import threading
+import time
 import datetime
+import random
 
 from spark_monitor import Scout
 from tool import exception_info
@@ -49,8 +53,9 @@ def read_text(data_path):
     
     with open(data_path, 'r') as tf:
         data = tf.read().splitlines()
+    num = random.randint(1,617900)
 
-    return data
+    return data[:num]
 
 
 class Main(Scout): # 繼承 Scout
@@ -75,11 +80,10 @@ class Main(Scout): # 繼承 Scout
     def start(self, data):
         self.set_spark_session() # 先初始化 spark session
 
-        #Scout.__init__(self, self.spark, self.configs) # -------------------> 將 spark session 傳入 Scout
-        #self.start_scout_daemon()                      # -------------------> 開始監控 spark session
+        Scout.__init__(self, self.spark, self.configs) # -------------------> 將 spark session 傳入 Scout
+        self.start_scout_daemon()                      # -------------------> 開始監控 spark session
 
         sc = self.spark.sparkContext                   # 間單的示範程式
-        #for x in range(0,5):                           # 間單的示範程式
         while True:
             rdd = sc.parallelize(data)                 # 間單的示範程式
             rdd = rdd.map(parser_prom_data)            # 間單的示範程式
@@ -92,9 +96,10 @@ class Main(Scout): # 繼承 Scout
         #spdf = rdd.toDF()                          # 間單的示範程式
         #spdf.show()                                # 間單的示範程式
 
-        #self.stop_scout_daemon()                       # -------------------> 停止監控
-        #self.join_scout_thread()                       # -------------------> 回收線程
-        #self.spark.stop()                              # -------------------> 停止 spark session
+        self.stop_scout_daemon()                       # -------------------> 停止監控
+        self.join_scout_thread()                       # -------------------> 回收線程
+
+        self.spark.stop()                              # -------------------> 停止 spark session
             
 
 if __name__ == "__main__":
@@ -104,33 +109,31 @@ if __name__ == "__main__":
     # spark configuration
     configs = {
         "configs":{
-            "spark.executor.memory":"1g",
-            "spark.executor.cores":"1",
-            "spark.driver.memory":"2g",
-            "spark.driver.cores":"2",
-            "spark.executor.instances":"1"
+            "spark.driver.memory":"1g",
+            "spark.driver.cores":"1",
+            "spark.dynamicAllocation.enabled":"true",
+            "spark.executor.cores":2,
+            "spark.dynamicAllocation.minExecutors":"1",
+            "spark.dynamicAllocation.maxExecutors":"2"
         },
         "appName":"spark session",
         "master":"spark://spark-master:7077"
     }
 
     # monitor configeration
+    timestamp = f"{int(time.time())}"
     scout_configs = {
         "guardian_type":"type-I",
         "mode": "file",
+        "log_path":"../data",
         "debug":{
-            "mode":"append",
-            "file_name":"../data/debug.txt"
+            "mode":"append"
         },
-        "output":{
-            "executor_info": {
-                "mode":"append",
-                "file_name":"../data/information_by_executor.txt",
-            },
-            "summary": {
-                "mode":"append",
-                "file_name":"../data/executors_summary.txt"
-            }
+        "info":{
+            "mode":"append"
+        },
+        "summary":{
+            "mode":"append"
         }
     }
 

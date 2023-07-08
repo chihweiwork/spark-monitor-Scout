@@ -23,7 +23,7 @@ pip-freeze: ## get python requirement
 	. ./venv/bin/activate
 	pip freeze > requirements.txt
 
-all: venv install ## install this project
+build: venv install ## install this project
 clean: clean-venv clean-build clean-env ## clean all
 rebuild: clean-venv clean-build clean-env venv install ## rebuild this project
 
