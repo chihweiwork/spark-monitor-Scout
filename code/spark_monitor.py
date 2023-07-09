@@ -2,14 +2,20 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 
 from tabulate import tabulate
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, List
 
 import pandas as pd
-import urlpath, json
-import datetime, re, time
-import warnings, threading
-
-import pdb, sys
+import urlpath
+import json
+import datetime
+import re
+import time
+import warnings
+import threading
+import pdb
+import sys
+import signal
+import atexit
 
 from tool import exception_info
 from tool import MonitorData
@@ -209,9 +215,11 @@ class ExecutorComputer(Application):
 
 class Scout(ExecutorComputer):
     """
-    # Scout: spark executor monitor,
-    - type-I  : monitor spark executors memory information
-    - type-II : monitor spark executors memory, task, stage (In progressing)
+    # Scout: spark monitor,
+    ## monitor list:
+    - executor memory
+    - job stage 
+    - job task
     ## output mode:
     - text file mode: write json like format data line by line to text file
     - kafka mode: output json like format to kafka (In progressing)
@@ -223,83 +231,102 @@ class Scout(ExecutorComputer):
         ) -> None:
 
         self.configs = configs
-        self.log_path = configs['log_path']
-        self.debug = "debug" in self.configs.keys() #or self.configs["debug"]
-        # Determine whether to use debug mode.
+        self.log_path = configs['log_path']            # path of log file
+        self.debug = "debug" in self.configs.keys()    # 判斷是否需要debug mode
+        self.monitors = self.registrate_monitor()      # 需求的監控
+        self.time_interval = configs['time_interval']  # 監控的時間間隔
 
         ExecutorComputer.__init__(self, session_or_url, applications_api_link, self.debug)
-        self.stop_flag = threading.Event() # setup stop flag.
+        self.stop_flag = threading.Event()          # setup stop flag.
 
-    def start_scout_daemon(self):
+    def start_scout_daemon(self) -> None:
         """
         Use this function to start Scout daemon.
         """
-        self.scout_daemon = threading.Thread(target=self.engine)
+        self.scout_daemon = threading.Thread(target=self.scout_driver)
         self.scout_daemon.daemin = True
         self.scout_daemon.start()
 
-    def stop_scout_daemon(self):
+    def stop_scout_daemon(self) -> None:
         """
         Use this function to stop Scout daemon.
         """
         self.stop_flag.set()
 
-    def join_scout_thread(self):
+    def join_scout_thread(self) -> None:
         """
         Use this function to join thread. 
         """
         self.scout_daemon.join()
 
-    def engine(self):
+    def scout_driver(self) -> None:
         """
-        Scout engine, use this function execute monitor.
+        Scout 的 driver，透過這個function來成行監控
         """
-
-        guardian_type = self.configs["guardian_type"]
-        print(f"Chose Guardian {guardian_type}, monitor spark executors, debug mode: {self.debug}")
 
         while not self.stop_flag.is_set():
-            if self.configs["guardian_type"] == "type-I":
-                self.type_I()
-            else:
-                raise UndefinedGuardian(self.configs['guardian_type'])
+            # 依序監控 monitors 的內容
+            for func in self.monitors:
+                func()
             time.sleep(15)
 
-    def type_I(self):
+    def registrate_monitor(self) -> List:
         """
-        monitor list:
-        - spark application executor memory
+        註冊需要的監控並回傳，回傳的 List 中會包含所註冊的監控
+        executor_monitor  : executor memory information
+        job_stage_monitor : job stage information
+        job_task_monitor  : job task information 
+        """
+        monitor = {
+            "executor_monitor":self.executor_monitor,
+            "job_stage_monitor":"",
+            "job_task_monitor":""
+        }
+
+        output = list()
+        for target in self.configs["guardian_type"]:
+            try:
+                output.append(monitor[target])
+            except KeyError: 
+                raise UndefinedGuardian(target)
+            finally:
+                exception_info()
+        return output
+
+    def executor_monitor(self) -> None:
+        """
+        監控產出
+        - raw_executors_df       : application 的原始資料
+        - executors_df           : executor 的資訊
+        - executors_summary_dict : 統計後的 executor 資料
         """
         try:
             raw_executors_df, executors_df, executors_summary_dict = self.log_executors_info()
-            action = self.get_output_mode() # output mode: file, kafka
-            action(
-                executors_df, "info" 
-            )
-            action(
-                executors_summary_dict, "summary" 
-            )
+
+            action = self.get_output_mode() 
+
+            action(executors_df, "info")
+            action(executors_summary_dict, "summary")
+
             if self.debug: # if use debug mode, output all information
-                action(
-                    raw_executors_df, "debug"
-                )
+                action(raw_executors_df, "debug")
             
         except:
             exception_info()
 
-    def write_text(self, data, data_type):
+    def write_text(self, data: Any, data_type: str) -> None:
         """
         This is output function, use this function to write text file.
         """
         file_name=f"{self.log_path}/{self.application_id}_{data_type}.txt"
         MonitorData(data).write2text(file_name=file_name)
     
-    def kafka_launcher(self, data, config):
+    def kafka_launcher(self, data: Any, config: Dict[Any, Any]) -> None:
         """
         This is output function, use this function to send data to kafka by streaming
         """
 
-    def get_output_mode(self):
+    def get_output_mode(self) -> Any:
         """
         Defiend output mode and return output function
         """
@@ -310,51 +337,3 @@ class Scout(ExecutorComputer):
         else:
             raise UndefinedOutputMode(self.configs["mode"])
         
-
-if __name__ == "__main__":
-    configs = {
-        "configs":{
-            "spark.executor.memory":"1g",
-            "spark.executor.cores":"1",
-            "spark.driver.memory":"2g",
-            "spark.driver.cores":"2",
-            "spark.executor.instances":"1"
-        },
-        "appName": "test spark monitor",
-        "master": "spark://spark-master:7077"
-    }
-
-    conf = SparkConf().setAll(configs['configs'].items())
-    spark = SparkSession.builder\
-                .appName(configs['appName'])\
-                .master(configs['master'])\
-                .config(conf=conf).getOrCreate()
-
-
-    scout_configs = {
-        "guardian_type":"type-I",
-        "mode": "file",
-        "debug":{
-            "mode":"append",
-            "file_name":"../data/debug.txt"
-        },
-        "output":{
-            "executor_info": {
-                "mode":"append",
-                "file_name":"../data/information_by_executor.txt",
-            },
-            "summary": {
-                "mode":"append",
-                "file_name":"../data/executors_summary.txt"
-            }
-        }
-    }
-
-    scout = Scout(spark.sparkContext.uiWebUrl, scout_configs)
-    scout.start_scout_daemon()
-    while True:
-        time.sleep(5)
-    scout.stop_scout_daemon()
-    scout.join_scout_thread()
-
-    spark.stop()

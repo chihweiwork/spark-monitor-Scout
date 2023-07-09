@@ -91,11 +91,6 @@ class Main(Scout): # 繼承 Scout
             spdf.show()                                # 間單的示範程式
             time.sleep(10)                             # 間單的示範程式
 
-        #rdd = sc.parallelize(data)                 # 間單的示範程式
-        #rdd = rdd.map(parser_prom_data)            # 間單的示範程式
-        #spdf = rdd.toDF()                          # 間單的示範程式
-        #spdf.show()                                # 間單的示範程式
-
         self.stop_scout_daemon()                       # -------------------> 停止監控
         self.join_scout_thread()                       # -------------------> 回收線程
 
@@ -123,8 +118,9 @@ if __name__ == "__main__":
     # monitor configeration
     timestamp = f"{int(time.time())}"
     scout_configs = {
-        "guardian_type":"type-I",
+        "guardian_type":["executor_monitor"],
         "mode": "file",
+        "time_interval":15, 
         "log_path":"../data",
         "debug":{
             "mode":"append"
